@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta name="referrer" content="no-referrer-when-downgrade">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Bulls and Cows</title>
+	<style>
+		body {
+			font-family: 'Roboto', sans-serif;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			height: 100vh;
+			margin: 0;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		}
+
+		.game-container {
+			background-color: rgba(255, 255, 255, 0.9);
+			padding: 30px;
+			border-radius: 15px;
+			box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+			text-align: center;
+			max-width: min(400px, 80%);
+			width: 100%;
+		}
+
+		#guessForm {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+
+		h1 {
+			color: #4a4a4a;
+			margin-bottom: 20px;
+		}
+
+		p {
+			color: #666;
+			margin-bottom: 10px;
+		}
+
+		input {
+			width: auto;
+			padding: 10px;
+			margin: 10px 5px 10px 0;
+			border: 2px solid #ddd;
+			border-radius: 5px;
+			font-size: 16px;
+			transition: border-color 0.3s ease;
+			-moz-appearance: textfield;
+			flex: 1;
+		}
+
+		input::-webkit-outer-spin-button,
+		input::-webkit-inner-spin-button {
+			-webkit-appearance: none;
+			margin: 0;
+		}
+
+		input:focus {
+			outline: none;
+			border-color: #764ba2;
+		}
+
+		button {
+			padding: 10px 20px;
+			background-color: #764ba2;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			cursor: pointer;
+			font-size: 16px;
+			transition: background-color 0.3s ease;
+			white-space: nowrap;
+		}
+
+		button:hover {
+			background-color: #667eea;
+		}
+
+		#history {
+			margin-top: 20px;
+			text-align: left;
+			max-height: 200px;
+			overflow-y: auto;
+			border: 1px solid #ddd;
+			padding: 10px;
+			border-radius: 5px;
+			background-color: #f9f9f9;
+			display: none;
+			scrollbar-width: thin;
+			scrollbar-color: #764ba2 #f0f0f0;
+		}
+
+		#history::-webkit-scrollbar {
+			width: 8px;
+		}
+
+		#history::-webkit-scrollbar-track {
+			background: #f0f0f0;
+			border-radius: 5px;
+		}
+
+		#history::-webkit-scrollbar-thumb {
+			background-color: #764ba2;
+			border-radius: 5px;
+			border: 2px solid #f0f0f0;
+		}
+
+		#history p {
+			margin: 5px 0;
+			padding: 5px;
+			border-bottom: 1px solid #eee;
+		}
+
+		#history p:last-child {
+			border-bottom: none;
+		}
+
+		#result {
+			font-weight: bold;
+			color: #4a4a4a;
+			margin-top: 20px;
+		}
+
+		.game-info {
+			background-color: #f0f0f0;
+			border-radius: 5px;
+			padding: 10px;
+			margin-bottom: 20px;
+		}
+
+		.game-info p {
+			margin: 5px 0;
+			font-size: 14px;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="game-container">
+		<h1>Bulls and Cows</h1>
+		<div class="game-info">
+			<p>Guess the 4-digit number</p>
+			<p>Bulls: correct digits in the correct position</p>
+			<p>Cows: correct digits in the wrong position</p>
+		</div>
+		<div id="history"></div>
+		<p id="result"></p>
+		<form id="guessForm">
+			<input type="number" id="guessInput" min="0" max="9999" inputmode="numeric" pattern="\d{4}" required="" placeholder="Enter your 4-digit guess" maxlength="4">
+			<button type="submit">Guess</button>
+		</form>
+	</div>
+	<script>
+		let GG_ALL_GAME_CONFIG = {
+			numberLength: 4, // length of the number to guess
+			digits: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+		};
+		let gameState = {
+			guesses: 0,
+			secretNumber: '',
+			gameOver: false
+		};
+
+		function shuffleArray(array) {
+			for (let i = array.length - 1; i > 0; i--) {
+				const j = Math.floor(Math.random() * (i + 1));
+				[array[i], array[j]] = [array[j], array[i]];
+			}
+		}
+
+		function generateSecretNumber() {
+			const shuffled = [...GG_ALL_GAME_CONFIG.digits];
+			shuffleArray(shuffled);
+			return shuffled.slice(0, GG_ALL_GAME_CONFIG.numberLength).join('');
+		}
+
+		function checkGuess(guess) {
+			let bulls = 0;
+			let cows = 0;
+			const guessSet = new Set(guess);
+			if (guess.length !== 4 || guessSet.size !== 4) {
+				return {
+					error: "Invalid guess. Must be 4 unique digits."
+				};
+			}
+			for (let i = 0; i < GG_ALL_GAME_CONFIG.numberLength; i++) {
+				if (guess[i] === gameState.secretNumber[i]) {
+					bulls++;
+				} else if (gameState.secretNumber.includes(guess[i])) {
+					cows++;
+				}
+			}
+			return {
+				bulls,
+				cows
+			};
+		}
+
+		function showError(message) {
+			const input = document.getElementById('guessInput');
+			input.setCustomValidity(message);
+			input.reportValidity();
+			setTimeout(() => {
+				input.setCustomValidity('');
+			}, 3000);
+		}
+
+		function updateHistory(guess, result) {
+			let historyDiv = document.getElementById('history');
+			if (historyDiv.style.display === 'none') {
+				historyDiv.style.display = 'block';
+			}
+			let newGuess = document.createElement('p');
+			newGuess.textContent = `Guess ${gameState.guesses}: ${guess} - ${result.bulls} Bulls, ${result.cows} Cows`;
+			historyDiv.appendChild(newGuess);
+			historyDiv.scrollTop = historyDiv.scrollHeight;
+		}
+
+		function startGame() {
+			gameState.secretNumber = generateSecretNumber();
+			gameState.guesses = 0;
+			gameState.gameOver = false;
+			document.getElementById('guessForm').style.display = 'flex';
+			document.getElementById('result').textContent = '';
+			document.getElementById('history').innerHTML = '';
+			document.getElementById('history').style.display = 'none';
+		}
+
+		function endGame() {
+			gameState.gameOver = true;
+			let resultDiv = document.getElementById('result');
+			resultDiv.textContent = `Congratulations! You guessed the number ${gameState.secretNumber} in ${gameState.guesses} guesses!`;
+			document.getElementById('guessForm').style.display = 'none';
+		}
+		document.getElementById('guessForm').addEventListener('submit', function(e) {
+			e.preventDefault();
+			if (gameState.gameOver) return;
+			let guess = document.getElementById('guessInput').value;
+			let result = checkGuess(guess);
+			if (result.error) {
+				showError(result.error);
+			} else {
+				gameState.guesses++;
+				updateHistory(guess, result);
+				if (result.bulls === GG_ALL_GAME_CONFIG.numberLength) {
+					endGame();
+				}
+				document.getElementById('guessInput').value = '';
+			}
+		});
+		document.getElementById('guessInput').addEventListener('input', function(e) {
+			const input = e.target;
+			input.value = input.value.slice(0, 4);
+			input.setCustomValidity("");
+		});
+		startGame();
+	</script>
+
+</body>
+
+</html>
